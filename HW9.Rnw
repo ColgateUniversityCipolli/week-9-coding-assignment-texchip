@@ -41,15 +41,98 @@ which \texttt{R} cannot differentiate from 0.
   the Log-Normal (see Lecture 17).
   \begin{enumerate}
     \item Compute the MLEs for these data using a Gamma distribution. 
+<<size="scriptsize", warning=F, message=F>>=
+library(tidyverse)
+
+dat.precip <- read_csv(file = "agacis.csv")
+
+dat.precip.long <- dat.precip |>    
+  dplyr::select(-Annual) |>                   
+  pivot_longer(cols = c(Jan, Feb, Mar, Apr,   
+                        May, Jun, Jul, Aug, 
+                        Sep, Oct, Nov, Dec), 
+               values_to = "Precipitation",
+               names_to = "Month") |>         
+  mutate(Precipitation = case_when(Precipitation == "M" ~ NA_character_,
+                                   TRUE                 ~ Precipitation))|>
+  mutate(Precipitation = as.numeric(Precipitation))
+
+#####################################
+# a.) MLEs (Gamma)
+#####################################
+llgamma <- function(par, data, neg=F){
+  alpha <- exp(par[1])
+  beta <- exp(par[2])
+  
+  ll <- sum(log(dgamma(x=data, shape=alpha, scale=beta)), na.rm=T)
+  
+  return(ifelse(neg, -ll, ll))
+}
+
+MLE.gamma <- optim(fn = llgamma,
+                    par = c(1,1),
+                    data = dat.precip.long$Precipitation,
+                    neg=T)
+
+ll.gamma <- -MLE.gamma$value
+(MLE.gamma$par <- exp(MLE.gamma$par))
+@
     \item Compute the MLEs for these data using the Log-Normal distribution.
-    \item Compute the likelihood ratio to compare the Weibull and the Gamma distribution. 
-    Which has a better fit according to the likelhiood ratio?
+<<size="scriptsize", warning=F, message=F>>=
+#####################################
+# b.) MLEs (Lognormal)
+#####################################
+lllognormal <- function(par, data, neg=F){
+  mu <- par[1] 
+  sigma <- exp(par[2]) 
+  
+  ll <- sum(log(dlnorm(x=data, meanlog=mu, sdlog=sigma)), na.rm=T)
+  
+  return(ifelse(neg, -ll, ll))
+}
+
+MLE.lognormal <- optim(fn = lllognormal,
+                        par = c(0,1),
+                        data = dat.precip.long$Precipitation,
+                        neg=T)
+
+ll.lognormal <- -MLE.lognormal$value
+MLE.lognormal$par[2] <- exp(MLE.lognormal$par[2]) 
+(MLE.lognormal$par)
+@
+    \item Compute the likelihood ratio to compare the Weibull and the Gamma distribution.
+    Which has a better fit according to the likelihood ratio?
+<<size="scriptsize", warning=F, message=F>>=
+#####################################
+# c.) Weibull / Gamma
+#####################################
+
+ll.weibull <- -2166.496
+(Q.wg <- exp(ll.weibull - ll.gamma))
+# Q.wg < 1, therefore the Gamma distribution has a better fit than the Weibull distribution.
+@
     \[Q = \frac{L(\{\hat{a}, \hat{\sigma}\}|\mathbf{x})}{L(\{\hat{\alpha}, \hat{\beta}\}|\mathbf{x})}=e^{\left[\mathcal{L}(\{\hat{a}, \hat{\sigma}\}|\mathbf{x}) - \mathcal{L}(\{\hat{\alpha}, \hat{\beta}\}|\mathbf{x})\right]}\]
     \item Compute the likelihood ratio to compare the Weibull and the Log-Normal distribution.
     Which has a better fit according to the likelihood ratio?
+<<size="scriptsize", warning=F, message=F>>=
+#####################################
+# d.) Weibull / Log-Normal
+#####################################
+
+(Q.wl <- exp(ll.weibull - ll.lognormal))
+# Q.wl > 1, therefore the Weibull distribution has a better fit than the Log-Normal distribution.
+@
     \[Q = \frac{L(\{\hat{a}, \hat{\sigma}\}|\mathbf{x})}{L(\{\hat{\mu}, \hat{\sigma}\}|\mathbf{x})}=e^{\left[\mathcal{L}(\{\hat{a}, \hat{\sigma}\}|\mathbf{x}) - \mathcal{L}(\{\hat{\mu}, \hat{\sigma}\}|\mathbf{x})\right]}\]
     \item Compute the likelihood ratio to compare the Gamma and the Log-Normal distribution.
-    Which has a better fit according to the likelhiood ratio?
+    Which has a better fit according to the likelihood ratio?
+<<size="scriptsize", warning=F, message=F>>=
+#####################################
+# e.) Gamma / Log-Normal
+#####################################
+
+(Q.gl <- exp(ll.gamma - ll.lognormal))
+# Q.gl > 1, therefore the Gamma distribution has a better fit than the Log-Normal distribution.
+@
     \[Q = \frac{L(\{\hat{\alpha}, \hat{\beta}\}|\mathbf{x})}{L(\{\hat{\mu}, \hat{\sigma}\}|\mathbf{x})}=e^{\left[\mathcal{L}(\{\hat{\alpha}, \hat{\beta}\}|\mathbf{x}) - \mathcal{L}(\{\hat{\mu}, \hat{\sigma}\}|\mathbf{x})\right]}\]
   \end{enumerate}
   \item Optional Coding Challenge. Choose the ``best" distribution and refit the
